@@ -4,6 +4,7 @@ precision highp float;
 
 in vec2 v_texcoord;
 in vec3 v_normal;
+in vec3 v_color;
 
 out vec4 color;
 
