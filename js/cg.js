@@ -67,6 +67,14 @@ class Cam {
     this.pos[2] += this.vec[direction][2] * velocity;
     this.updateVectors();
   }
+  getOffsetX(direction, deltaTime) {
+    const velocity = this.sign[direction] * this.speed * deltaTime;
+    return this.vec[direction][2] * velocity;
+  }
+  getOffsetY(direction, deltaTime) {
+    const velocity = this.sign[direction] * this.speed * deltaTime;
+    return this.vec[direction][0] * velocity;
+  }
 
   moveUpDown(direction, deltaTime){
     const velocity = direction * this.speed * deltaTime;

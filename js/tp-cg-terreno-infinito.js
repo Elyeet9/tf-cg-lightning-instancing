@@ -60,7 +60,7 @@ async function main(){
         meshProgramInfo,
     );
 
-    const cam = new cg.Cam([0, 18, 35], 100);
+    const cam = new cg.Cam([0, 18, 20], 100);
 
     let aspect = 1;
     let deltaTime = 0;
@@ -111,9 +111,9 @@ async function main(){
         gl.useProgram(meshProgramInfo.program);
 
         let x = 0, y = 0, v;
-        for (let i = -56; i < 56; i += 2) {
+        for (let i = -64; i < 64; i += 2) {
             x = 0;
-            for (let j = -56; j < 56; j += 2) {
+            for (let j = -64; j < 64; j += 2) {
                 v = perlinNoise.get(x + offSetX, y + offSetY);
 
                 m4.identity(uniforms.u_world);
@@ -136,13 +136,26 @@ async function main(){
     requestAnimationFrame(render);
 
     document.addEventListener("keydown", (e) => {
-        /**/ if (e.key === "w") offSetX -= num_pixels;
-        else if (e.key === "a") offSetY -= num_pixels;
-        else if (e.key === "s") offSetX += num_pixels;
-        else if (e.key === "d") offSetY += num_pixels;
-        else if(e.key === "q") cam.moveUpDown(1, deltaTime);
-        else if(e.key === "e") cam.moveUpDown(-1, deltaTime);
+        if (e.key === "w"){
+            offSetX += cam.getOffsetX(cg.FORWARD, deltaTime)/40;
+            offSetY += cam.getOffsetY(cg.FORWARD, deltaTime)/40;
+        }
+        else if (e.key === "a"){
+            offSetX += cam.getOffsetX(cg.LEFT, deltaTime)/40;
+            offSetY += cam.getOffsetY(cg.LEFT, deltaTime)/40;
+        }
+        else if (e.key === "s"){
+            offSetX += cam.getOffsetX(cg.BACKWARD, deltaTime)/40;
+            offSetY += cam.getOffsetY(cg.BACKWARD, deltaTime)/40;
+        }
+        else if (e.key === "d"){
+            offSetX += cam.getOffsetX(cg.RIGHT, deltaTime)/40;
+            offSetY += cam.getOffsetY(cg.RIGHT, deltaTime)/40;
+        }
+        else if(e.key === "q") cam.moveUpDown(1, deltaTime)/40;
+        else if(e.key === "e") cam.moveUpDown(-1, deltaTime)/40;
     });
+    
     document.addEventListener("mousemove", (e) => cam.movePov(e.x, e.y));
     document.addEventListener("mousedown", (e) => cam.startMove(e.x, e.y));
     document.addEventListener("mouseup", () => cam.stopMove());
