@@ -10,5 +10,5 @@ Ke 0.0 0.0 0.0
 Ni 1.45
 d 1.0
 illum 2
-map_Kd crate.png
-map_Ns crate_spec.png
+map_Kd stone.png
+map_Ns stone_spec.png

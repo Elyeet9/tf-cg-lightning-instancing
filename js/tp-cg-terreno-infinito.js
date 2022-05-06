@@ -5,7 +5,6 @@ import * as cg from "./cg.js";
 import * as m4 from "./glmjs/mat4.js";
 import * as twgl from "./twgl-full.module.js";
 
-//Cuando te mueves en X o Y se debe cambiar el offset
 var offSetX = 0;
 var offSetY = 0;
 
@@ -18,7 +17,7 @@ const RegionType = {
     WATER: -1,
     SAND: 0,
     GRASS: 0.06,
-    DIRT: 0.3
+    STONE: 0.3
 }
 
 function GetRegionType(v){
@@ -31,36 +30,7 @@ function GetRegionType(v){
     return regType;
 }
 
-//Replace to what texture will return according to the height [-1; 1]
-function GetHSLColor(v){
-    var regType = GetRegionType(v);
-    switch (regType){
-        case "WATER":
-            return 'hsl(202,50%,50%)';
-        case "SAND":
-            return 'hsl(47,80%,72%)';
-        case "GRASS":
-            return 'hsl(129, 55%, 58%)';
-        case "DIRT":
-            return 'hsl(36, 28%, 49%)';
-    }
-    return 'hsl(202,50%,50%)';
-}
-
 async function main(){
-    // GenerateMap();
-    // function render(elaspedTime){
-    //     //Para obtener el valor de una pos en el perlin noise
-    //     //let value = perlinNoise.get(x, y);
-    //     //Con ello se situa la altura de los bloques mientras uno avanza
-    //     GenerateMap();
-    //     console.log("JIJI   ");
-    //     requestAnimationFrame(render);
-    // }
-    // requestAnimationFrame(render);
-
-
-
     const gl = document.querySelector("#canvitas").getContext("webgl2");
     if (!gl) return undefined !== console.log("WebGL 2.0 not supported");
 
@@ -69,13 +39,28 @@ async function main(){
     const vertSrc = await fetch("glsl/tp-cg.vert").then((r) => r.text());
     const fragSrc = await fetch("glsl/tp-cg.frag").then((r) => r.text());
     const meshProgramInfo = twgl.createProgramInfo(gl, [vertSrc, fragSrc]);
-    const floor = await cg.loadObj(
-        "models/crate/crate.obj",
+    const waterObj = await cg.loadObj(
+        "models/water/water.obj",
+        gl,
+        meshProgramInfo,
+    );
+    const sandObj = await cg.loadObj(
+        "models/sand/sand.obj",
+        gl,
+        meshProgramInfo,
+    );
+    const grassObj = await cg.loadObj(
+        "models/grass/grass.obj",
+        gl,
+        meshProgramInfo,
+    );
+    const stoneObj = await cg.loadObj(
+        "models/stone/stone.obj",
         gl,
         meshProgramInfo,
     );
 
-    const cam = new cg.Cam([0, -5, 25], 100);
+    const cam = new cg.Cam([0, 18, 35], 100);
 
     let aspect = 1;
     let deltaTime = 0;
@@ -90,6 +75,21 @@ async function main(){
 
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
+
+    function GetObjectToUse(v){
+        var regType = GetRegionType(v);
+        switch (regType){
+            case "WATER":
+                return waterObj;
+            case "SAND":
+                return sandObj;
+            case "GRASS":
+                return grassObj;
+            case "STONE":
+                return stoneObj;
+        }
+        return waterObj;
+    }
 
     function render(elapsedTime) {
         elapsedTime *= 1e-3;
@@ -110,15 +110,18 @@ async function main(){
 
         gl.useProgram(meshProgramInfo.program);
 
-        let x = 0, y = 0;
-        for (let i = -16; i < 16; i += 2) {
+        let x = 0, y = 0, v;
+        for (let i = -56; i < 56; i += 2) {
             x = 0;
-            for (let j = -16; j < 16; j += 2) {
+            for (let j = -56; j < 56; j += 2) {
+                v = perlinNoise.get(x + offSetX, y + offSetY);
+
                 m4.identity(uniforms.u_world);
-                m4.translate(uniforms.u_world, uniforms.u_world, [i, parseInt(perlinNoise.get(x + offSetX, y + offSetY) * 20), j]);
+                m4.translate(uniforms.u_world, uniforms.u_world, [i, parseInt(v * 20), j]);
                 twgl.setUniforms(meshProgramInfo, uniforms);
 
-                for (const { bufferInfo, vao, material } of floor) {
+                var objectToUse = GetObjectToUse(v);
+                for (const { bufferInfo, vao, material } of objectToUse) {
                     gl.bindVertexArray(vao);
                     twgl.setUniforms(meshProgramInfo, {}, material);
                     twgl.drawBufferInfo(gl, bufferInfo);
@@ -133,25 +136,17 @@ async function main(){
     requestAnimationFrame(render);
 
     document.addEventListener("keydown", (e) => {
-        /**/ if (e.key === "w") cam.processKeyboard(cg.FORWARD, deltaTime);
-        else if (e.key === "a") cam.processKeyboard(cg.LEFT, deltaTime);
-        else if (e.key === "s") cam.processKeyboard(cg.BACKWARD, deltaTime);
-        else if (e.key === "d") cam.processKeyboard(cg.RIGHT, deltaTime);
+        /**/ if (e.key === "w") offSetX -= num_pixels;
+        else if (e.key === "a") offSetY -= num_pixels;
+        else if (e.key === "s") offSetX += num_pixels;
+        else if (e.key === "d") offSetY += num_pixels;
+        else if(e.key === "q") cam.moveUpDown(1, deltaTime);
+        else if(e.key === "e") cam.moveUpDown(-1, deltaTime);
     });
     document.addEventListener("mousemove", (e) => cam.movePov(e.x, e.y));
     document.addEventListener("mousedown", (e) => cam.startMove(e.x, e.y));
     document.addEventListener("mouseup", () => cam.stopMove());
     document.addEventListener("wheel", (e) => cam.processScroll(e.deltaY));
-}
-
-function GenerateMap(){
-    var xtot, ytot;
-    for (let y = 0; y < grid_size; y += num_pixels / grid_size){
-        for (let x = 0; x < grid_size; x += num_pixels / grid_size){  
-
-            perlinNoise.get(x, y);
-        }
-    }
 }
 
 main();

@@ -1,6 +1,6 @@
 # Blender v2.93.5 OBJ File: ''
 # www.blender.org
-mtllib crate.mtl
+mtllib sand.mtl
 o Cube
 v 1.0 1.0 -1.0
 v 1.0 -1.0 -1.0

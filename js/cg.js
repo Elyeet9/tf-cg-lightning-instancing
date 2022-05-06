@@ -65,8 +65,15 @@ class Cam {
     this.pos[0] += this.vec[direction][0] * velocity;
     this.pos[1] += this.vec[direction][1] * velocity;
     this.pos[2] += this.vec[direction][2] * velocity;
-    this.updateVectors(); // missing before!
+    this.updateVectors();
   }
+
+  moveUpDown(direction, deltaTime){
+    const velocity = direction * this.speed * deltaTime;
+    this.pos[1] += velocity;
+    this.updateVectors();
+  }
+
   processScroll(yoffset) {
     this.zoom -= yoffset * this.zoomSensitivity;
     if (this.zoom < MINZOOM) {
