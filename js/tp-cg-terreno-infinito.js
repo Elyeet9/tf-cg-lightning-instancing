@@ -14,6 +14,39 @@ const resolution = 16;
 const num_pixels = grid_size / resolution; // 0.25
 const perlinNoise = new pn.PerlinNoise();
 
+const RegionType = {
+    WATER: -1,
+    SAND: 0,
+    GRASS: 0.06,
+    DIRT: 0.3
+}
+
+function GetRegionType(v){
+    var regType;
+    for (let key in RegionType){
+        if (v >= RegionType[key]){
+            regType = key;
+        }
+    }
+    return regType;
+}
+
+//Replace to what texture will return according to the height [-1; 1]
+function GetHSLColor(v){
+    var regType = GetRegionType(v);
+    switch (regType){
+        case "WATER":
+            return 'hsl(202,50%,50%)';
+        case "SAND":
+            return 'hsl(47,80%,72%)';
+        case "GRASS":
+            return 'hsl(129, 55%, 58%)';
+        case "DIRT":
+            return 'hsl(36, 28%, 49%)';
+    }
+    return 'hsl(202,50%,50%)';
+}
+
 async function main(){
     GenerateMap();
     function render(elaspedTime){
