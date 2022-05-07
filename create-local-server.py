@@ -2,7 +2,7 @@
 import http.server
 import socketserver
 
-PORT = 1336
+PORT = 1337
 
 Handler = http.server.SimpleHTTPRequestHandler
 Handler.extensions_map.update({

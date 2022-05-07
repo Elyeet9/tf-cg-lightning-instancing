@@ -10,8 +10,9 @@ var offSetY = 0;
 
 const grid_size = 1;
 const resolution = 16;
-const num_pixels = grid_size / resolution; // 0.25
+const num_pixels = grid_size / resolution; // 0.0625
 const perlinNoise = new pn.PerlinNoise();
+const slimeRadius = 1.5;
 
 const RegionType = {
     WATER: -1,
@@ -39,6 +40,11 @@ async function main(){
     const vertSrc = await fetch("glsl/tp-cg.vert").then((r) => r.text());
     const fragSrc = await fetch("glsl/tp-cg.frag").then((r) => r.text());
     const meshProgramInfo = twgl.createProgramInfo(gl, [vertSrc, fragSrc]);
+    const cubex = await cg.loadObj(
+        "models/slime/slime.obj",
+        gl,
+        meshProgramInfo,
+      );
     const waterObj = await cg.loadObj(
         "models/water/water.obj",
         gl,
@@ -66,6 +72,28 @@ async function main(){
     let deltaTime = 0;
     let lastTime = 0;
     let theta = 0;
+
+    const numObjs = 10;
+    const positions = new Array(numObjs);
+    const delta = new Array(numObjs);
+    const deltaG = -9.81;
+    const rndb = (a, b) => parseInt(Math.random() * (b - a) + a);
+    for (let i = 0; i < numObjs; i++) {
+    positions[i] = [
+        rndb(-64.0, 64.0),
+        rndb(20.0, 40.0),
+        rndb(-64.0, 64.0),
+    ];
+    delta[i] = [rndb(-1.1, 1.1), 0.0, rndb(-1.1, 1.1)];
+    }
+
+    function MoveAllSlimes(x, z){
+        for(let i=0; i < numObjs; i++){
+            positions[i][0] += z;
+            positions[i][2] += x;
+            console.log(positions[i]);
+        }
+    }
 
     const uniforms = {
         u_world: m4.create(),
@@ -110,6 +138,35 @@ async function main(){
 
         gl.useProgram(meshProgramInfo.program);
 
+        for (let i = 0; i < numObjs; i++) {
+            m4.identity(uniforms.u_world);
+            m4.translate(uniforms.u_world, uniforms.u_world, positions[i]);
+            twgl.setUniforms(meshProgramInfo, uniforms);
+
+            for (const { bufferInfo, vao, material } of cubex) {
+              gl.bindVertexArray(vao);
+              twgl.setUniforms(meshProgramInfo, {}, material);
+              twgl.drawBufferInfo(gl, bufferInfo);
+            }
+            
+            let baseSlimePos = parseInt(perlinNoise.get((positions[i][2] * num_pixels/grid_size) + offSetX, (positions[i][0] * 
+            num_pixels/grid_size) + offSetY)) * 20;
+            
+            positions[i][1] += delta[i][1] * deltaTime;
+            if  (positions[i][1] > 60){
+                positions[i][1] = 60;
+                delta[i][1] = 0;
+            }
+            else if (positions[i][1] - slimeRadius <= baseSlimePos && delta[i][1]<0) {
+                positions[i][1] = baseSlimePos + slimeRadius;
+                delta[i][1] =20;
+                console.log(delta[i][1]);
+            }
+            delta[i][1] += deltaG * deltaTime;
+        }
+
+
+
         let x = 0, y = 0, v;
         for (let i = -64; i < 64; i += 2) {
             x = 0;
@@ -117,7 +174,7 @@ async function main(){
                 v = perlinNoise.get(x + offSetX, y + offSetY);
 
                 m4.identity(uniforms.u_world);
-                m4.translate(uniforms.u_world, uniforms.u_world, [i, parseInt(v * 20), j]);
+                m4.translate(uniforms.u_world, uniforms.u_world, [i, parseInt(v*20), j]);
                 twgl.setUniforms(meshProgramInfo, uniforms);
 
                 var objectToUse = GetObjectToUse(v);
@@ -136,24 +193,39 @@ async function main(){
     requestAnimationFrame(render);
 
     document.addEventListener("keydown", (e) => {
-        if (e.key === "w"){
-            offSetX += cam.getOffsetX(cg.FORWARD, deltaTime)/40;
-            offSetY += cam.getOffsetY(cg.FORWARD, deltaTime)/40;
+        if (e.key === "w" || e.key === "W"){
+            var MoveOffsetX = cam.getOffsetX(cg.FORWARD, deltaTime);
+            var MoveOffsetZ = cam.getOffsetY(cg.FORWARD, deltaTime);
+            offSetX += MoveOffsetX/40;
+            offSetY += MoveOffsetZ/40;
+            MoveAllSlimes(-MoveOffsetX, - MoveOffsetZ);
         }
-        else if (e.key === "a"){
-            offSetX += cam.getOffsetX(cg.LEFT, deltaTime)/40;
-            offSetY += cam.getOffsetY(cg.LEFT, deltaTime)/40;
+        else if (e.key === "a" || e.key === "A"){
+            var MoveOffsetX = cam.getOffsetX(cg.LEFT, deltaTime);
+            var MoveOffsetZ = cam.getOffsetY(cg.LEFT, deltaTime);
+            offSetX += MoveOffsetX/40;
+            offSetY += MoveOffsetZ/40;
+            MoveAllSlimes(-MoveOffsetX, - MoveOffsetZ);
+            
         }
-        else if (e.key === "s"){
-            offSetX += cam.getOffsetX(cg.BACKWARD, deltaTime)/40;
-            offSetY += cam.getOffsetY(cg.BACKWARD, deltaTime)/40;
+        else if (e.key === "s" || e.key === "S"){
+            var MoveOffsetX = cam.getOffsetX(cg.BACKWARD, deltaTime);
+            var MoveOffsetZ = cam.getOffsetY(cg.BACKWARD, deltaTime);
+            offSetX += MoveOffsetX/40;
+            offSetY += MoveOffsetZ/40;
+            MoveAllSlimes(-MoveOffsetX, - MoveOffsetZ);
+            
         }
-        else if (e.key === "d"){
-            offSetX += cam.getOffsetX(cg.RIGHT, deltaTime)/40;
-            offSetY += cam.getOffsetY(cg.RIGHT, deltaTime)/40;
+        else if (e.key === "d" || e.key === "D"){
+            var MoveOffsetX = cam.getOffsetX(cg.RIGHT, deltaTime);
+            var MoveOffsetZ = cam.getOffsetY(cg.RIGHT, deltaTime);
+            offSetX += MoveOffsetX/40;
+            offSetY += MoveOffsetZ/40;
+            MoveAllSlimes(-MoveOffsetX, - MoveOffsetZ);
+            
         }
-        else if(e.key === "q") cam.moveUpDown(1, deltaTime)/40;
-        else if(e.key === "e") cam.moveUpDown(-1, deltaTime)/40;
+        else if(e.key === "q" || e.key === "Q") cam.moveUpDown(1, deltaTime)/40;
+        else if(e.key === "e" || e.key === "E") cam.moveUpDown(-1, deltaTime)/40;
     });
     
     document.addEventListener("mousemove", (e) => cam.movePov(e.x, e.y));
