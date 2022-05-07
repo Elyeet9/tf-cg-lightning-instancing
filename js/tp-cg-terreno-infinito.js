@@ -91,7 +91,6 @@ async function main(){
         for(let i=0; i < numObjs; i++){
             positions[i][0] += z;
             positions[i][2] += x;
-            console.log(positions[i]);
         }
     }
 
@@ -128,7 +127,7 @@ async function main(){
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             aspect = gl.canvas.width / gl.canvas.height;
         }
-        gl.clearColor(0.1, 0.1, 0.1, 1);
+        gl.clearColor(0.69, 0.80, 1, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         theta = elapsedTime;
@@ -160,7 +159,6 @@ async function main(){
             else if (positions[i][1] - slimeRadius <= baseSlimePos && delta[i][1]<0) {
                 positions[i][1] = baseSlimePos + slimeRadius;
                 delta[i][1] =20;
-                console.log(delta[i][1]);
             }
             delta[i][1] += deltaG * deltaTime;
         }
