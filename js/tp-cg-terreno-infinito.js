@@ -10,9 +10,9 @@ var offSetY = 0;
 
 const grid_size = 1;
 const resolution = 16;
-const num_pixels = grid_size / resolution; // 0.25
+const num_pixels = grid_size / resolution; // 0.0625
 const perlinNoise = new pn.PerlinNoise();
-const slimeRadius = 0.5;
+const slimeRadius = 1.5;
 
 const RegionType = {
     WATER: -1,
@@ -77,14 +77,22 @@ async function main(){
     const positions = new Array(numObjs);
     const delta = new Array(numObjs);
     const deltaG = -9.81;
-    const rndb = (a, b) => Math.random() * (b - a) + a;
+    const rndb = (a, b) => parseInt(Math.random() * (b - a) + a);
     for (let i = 0; i < numObjs; i++) {
-      positions[i] = [
+    positions[i] = [
         rndb(-64.0, 64.0),
-        rndb(6.0, 12.0),
+        rndb(20.0, 40.0),
         rndb(-64.0, 64.0),
-      ];
-      delta[i] = [rndb(-1.1, 1.1), 0.0, rndb(-1.1, 1.1)];
+    ];
+    delta[i] = [rndb(-1.1, 1.1), 0.0, rndb(-1.1, 1.1)];
+    }
+
+    function MoveAllSlimes(x, z){
+        for(let i=0; i < numObjs; i++){
+            positions[i][0] += z;
+            positions[i][2] += x;
+            console.log(positions[i]);
+        }
     }
 
     const uniforms = {
@@ -134,27 +142,28 @@ async function main(){
             m4.identity(uniforms.u_world);
             m4.translate(uniforms.u_world, uniforms.u_world, positions[i]);
             twgl.setUniforms(meshProgramInfo, uniforms);
-      
+
             for (const { bufferInfo, vao, material } of cubex) {
               gl.bindVertexArray(vao);
               twgl.setUniforms(meshProgramInfo, {}, material);
               twgl.drawBufferInfo(gl, bufferInfo);
             }
-      
-            let baseSlimePos = parseInt(perlinNoise.get(positions[i][0], positions[i][1])) * 20;
-            // Update position
-            for (let j = 0; j < 3; j++) {
-              positions[i][j] += delta[i][j] * deltaTime;
-              if (positions[i][j] > 20.0) {
-                positions[i][j] = 20.0;
-                delta[i][j] = -delta[i][j];
-              } else if (positions[i][j] + slimeRadius < baseSlimePos) {
-                positions[i][j] = baseSlimePos;
-                delta[i][j] = -delta[i][j];
-              }
+            
+            let baseSlimePos = parseInt(perlinNoise.get((positions[i][2] * num_pixels/grid_size) + offSetX, (positions[i][0] * 
+            num_pixels/grid_size) + offSetY)) * 20;
+            
+            positions[i][1] += delta[i][1] * deltaTime;
+            if  (positions[i][1] > 60){
+                positions[i][1] = 60;
+                delta[i][1] = 0;
+            }
+            else if (positions[i][1] - slimeRadius <= baseSlimePos && delta[i][1]<0) {
+                positions[i][1] = baseSlimePos + slimeRadius;
+                delta[i][1] =20;
+                console.log(delta[i][1]);
             }
             delta[i][1] += deltaG * deltaTime;
-          }
+        }
 
 
 
@@ -165,7 +174,7 @@ async function main(){
                 v = perlinNoise.get(x + offSetX, y + offSetY);
 
                 m4.identity(uniforms.u_world);
-                m4.translate(uniforms.u_world, uniforms.u_world, [i, parseInt(v * 20), j]);
+                m4.translate(uniforms.u_world, uniforms.u_world, [i, parseInt(v*20), j]);
                 twgl.setUniforms(meshProgramInfo, uniforms);
 
                 var objectToUse = GetObjectToUse(v);
@@ -184,24 +193,39 @@ async function main(){
     requestAnimationFrame(render);
 
     document.addEventListener("keydown", (e) => {
-        if (e.key === "w"){
-            offSetX += cam.getOffsetX(cg.FORWARD, deltaTime)/40;
-            offSetY += cam.getOffsetY(cg.FORWARD, deltaTime)/40;
+        if (e.key === "w" || e.key === "W"){
+            var MoveOffsetX = cam.getOffsetX(cg.FORWARD, deltaTime);
+            var MoveOffsetZ = cam.getOffsetY(cg.FORWARD, deltaTime);
+            offSetX += MoveOffsetX/40;
+            offSetY += MoveOffsetZ/40;
+            MoveAllSlimes(-MoveOffsetX, - MoveOffsetZ);
         }
-        else if (e.key === "a"){
-            offSetX += cam.getOffsetX(cg.LEFT, deltaTime)/40;
-            offSetY += cam.getOffsetY(cg.LEFT, deltaTime)/40;
+        else if (e.key === "a" || e.key === "A"){
+            var MoveOffsetX = cam.getOffsetX(cg.LEFT, deltaTime);
+            var MoveOffsetZ = cam.getOffsetY(cg.LEFT, deltaTime);
+            offSetX += MoveOffsetX/40;
+            offSetY += MoveOffsetZ/40;
+            MoveAllSlimes(-MoveOffsetX, - MoveOffsetZ);
+            
         }
-        else if (e.key === "s"){
-            offSetX += cam.getOffsetX(cg.BACKWARD, deltaTime)/40;
-            offSetY += cam.getOffsetY(cg.BACKWARD, deltaTime)/40;
+        else if (e.key === "s" || e.key === "S"){
+            var MoveOffsetX = cam.getOffsetX(cg.BACKWARD, deltaTime);
+            var MoveOffsetZ = cam.getOffsetY(cg.BACKWARD, deltaTime);
+            offSetX += MoveOffsetX/40;
+            offSetY += MoveOffsetZ/40;
+            MoveAllSlimes(-MoveOffsetX, - MoveOffsetZ);
+            
         }
-        else if (e.key === "d"){
-            offSetX += cam.getOffsetX(cg.RIGHT, deltaTime)/40;
-            offSetY += cam.getOffsetY(cg.RIGHT, deltaTime)/40;
+        else if (e.key === "d" || e.key === "D"){
+            var MoveOffsetX = cam.getOffsetX(cg.RIGHT, deltaTime);
+            var MoveOffsetZ = cam.getOffsetY(cg.RIGHT, deltaTime);
+            offSetX += MoveOffsetX/40;
+            offSetY += MoveOffsetZ/40;
+            MoveAllSlimes(-MoveOffsetX, - MoveOffsetZ);
+            
         }
-        else if(e.key === "q") cam.moveUpDown(1, deltaTime)/40;
-        else if(e.key === "e") cam.moveUpDown(-1, deltaTime)/40;
+        else if(e.key === "q" || e.key === "Q") cam.moveUpDown(1, deltaTime)/40;
+        else if(e.key === "e" || e.key === "E") cam.moveUpDown(-1, deltaTime)/40;
     });
     
     document.addEventListener("mousemove", (e) => cam.movePov(e.x, e.y));
