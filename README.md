@@ -20,4 +20,5 @@ Se tiene una libreria de objetos por cada textura, estos bloques se grafican en 
 - 3: Tierra
 - 4: Piedra
 
-![alt text](https://media.discordapp.net/attachments/971912107459248138/972279886557364284/unknown.png?width=1151&height=559)
+Finalmente se implementaron las entidades con colision esferica, las cuales rebotan al tocar una superficie.
+![alt text](https://media.discordapp.net/attachments/971912107459248138/972345446427144262/unknown.png?width=1173&height=559)
