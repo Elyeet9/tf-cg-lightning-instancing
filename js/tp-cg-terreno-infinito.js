@@ -12,6 +12,7 @@ const grid_size = 1;
 const resolution = 16;
 const num_pixels = grid_size / resolution; // 0.25
 const perlinNoise = new pn.PerlinNoise();
+const slimeRadius = 0.5;
 
 const RegionType = {
     WATER: -1,
@@ -39,6 +40,11 @@ async function main(){
     const vertSrc = await fetch("glsl/tp-cg.vert").then((r) => r.text());
     const fragSrc = await fetch("glsl/tp-cg.frag").then((r) => r.text());
     const meshProgramInfo = twgl.createProgramInfo(gl, [vertSrc, fragSrc]);
+    const cubex = await cg.loadObj(
+        "models/slime/slime.obj",
+        gl,
+        meshProgramInfo,
+      );
     const waterObj = await cg.loadObj(
         "models/water/water.obj",
         gl,
@@ -66,6 +72,20 @@ async function main(){
     let deltaTime = 0;
     let lastTime = 0;
     let theta = 0;
+
+    const numObjs = 10;
+    const positions = new Array(numObjs);
+    const delta = new Array(numObjs);
+    const deltaG = -9.81;
+    const rndb = (a, b) => Math.random() * (b - a) + a;
+    for (let i = 0; i < numObjs; i++) {
+      positions[i] = [
+        rndb(-64.0, 64.0),
+        rndb(6.0, 12.0),
+        rndb(-64.0, 64.0),
+      ];
+      delta[i] = [rndb(-1.1, 1.1), 0.0, rndb(-1.1, 1.1)];
+    }
 
     const uniforms = {
         u_world: m4.create(),
@@ -109,6 +129,34 @@ async function main(){
         m4.perspective(uniforms.u_projection, cam.zoom, aspect, 0.1, 100);
 
         gl.useProgram(meshProgramInfo.program);
+
+        for (let i = 0; i < numObjs; i++) {
+            m4.identity(uniforms.u_world);
+            m4.translate(uniforms.u_world, uniforms.u_world, positions[i]);
+            twgl.setUniforms(meshProgramInfo, uniforms);
+      
+            for (const { bufferInfo, vao, material } of cubex) {
+              gl.bindVertexArray(vao);
+              twgl.setUniforms(meshProgramInfo, {}, material);
+              twgl.drawBufferInfo(gl, bufferInfo);
+            }
+      
+            let baseSlimePos = parseInt(perlinNoise.get(positions[i][0], positions[i][1])) * 20;
+            // Update position
+            for (let j = 0; j < 3; j++) {
+              positions[i][j] += delta[i][j] * deltaTime;
+              if (positions[i][j] > 20.0) {
+                positions[i][j] = 20.0;
+                delta[i][j] = -delta[i][j];
+              } else if (positions[i][j] + slimeRadius < baseSlimePos) {
+                positions[i][j] = baseSlimePos;
+                delta[i][j] = -delta[i][j];
+              }
+            }
+            delta[i][1] += deltaG * deltaTime;
+          }
+
+
 
         let x = 0, y = 0, v;
         for (let i = -64; i < 64; i += 2) {
