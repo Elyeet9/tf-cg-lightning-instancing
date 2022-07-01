@@ -39,15 +39,10 @@ async function main(){
 
     twgl.setDefaults({ attribPrefix: "a_" });
 
-    const vertSrc = await fetch("glsl/flashlight.vert").then((r) => r.text());
-    const fragSrc = await fetch("glsl/flashlight.frag").then((r) => r.text());
+    let vertSrc = await fetch("glsl/flashlight.vert").then((r) => r.text());
+    let fragSrc = await fetch("glsl/flashlight.frag").then((r) => r.text());
     const meshProgramInfo = twgl.createProgramInfo(gl, [vertSrc, fragSrc]);
-    const slimeProgramInfo = twgl.createProgramInfo(gl, [vertSrc, fragSrc]);
-    const cubex = await cg.loadObj(
-        "models/slime/slime.obj",
-        gl,
-        slimeProgramInfo,
-      );
+
     const waterObj = await cg.loadObj(
         "models/water/water.obj",
         gl,
@@ -69,7 +64,12 @@ async function main(){
         meshProgramInfo,
     );
 
-    const cam = new cg.Cam([0, 18, 20], 100);
+
+    vertSrc = await fetch("glsl/slime.vert").then((r) => r.text());
+    fragSrc = await fetch("glsl/slime.frag").then((r) => r.text());
+    const slimeProgramInfo = twgl.createProgramInfo(gl, [vertSrc, fragSrc]);
+    
+    const cam = new cg.Cam([0, 18, 20], 20);
 
     let aspect = 16.0/9.0;
     let deltaTime = 0;
@@ -88,14 +88,11 @@ async function main(){
         u_view: cam.viewM4,
     };
 
-    const slime_light = {
-        "u_light.type": 3,
-        "u_light.ambient": new Float32Array([0.01, 0.01, 0.01]),
-        "u_light.diffuse": new Float32Array([1.0, 1.0, 1.0]),
-        "u_light.intensity": 1.0,
-        "u_light.position": v3.fromValues(20.0, 5.0, 20.0),
-        u_viewPosition: cam.pos,
-    };
+    const fragUniforms = {
+		u_ambientLight: new Float32Array([0.1, 0.1, 0.1]),
+		u_lightPosition: new Float32Array([0.0, 0.0, 0.0]),
+		u_viewPosition: cam.pos,
+	};
 
     const flashlight = {
         "u_light.ambient": new Float32Array([0.25, 0.25, 0.25]),
@@ -111,19 +108,48 @@ async function main(){
         u_viewPosition: cam.pos,
     };
 
-    const numObjs = 10;
+    const numObjs = 50000;
     const positions = new Array(numObjs);
-    const delta = new Array(numObjs);
-    const deltaG = -9.81;
     const rndb = (a, b) => parseInt(Math.random() * (b - a) + a);
     for (let i = 0; i < numObjs; i++) {
     positions[i] = [
         rndb(-64.0, 64.0),
-        rndb(20.0, 40.0),
+        rndb(25.0, 60.0),
         rndb(-64.0, 64.0),
     ];
-    delta[i] = [rndb(-1.1, 1.1), 0.0, rndb(-1.1, 1.1)];
     }
+
+    const slime_light = {
+        "u_light.type": 3,
+        "u_light.ambient": new Float32Array([0.01, 0.01, 0.01]),
+        "u_light.diffuse": new Float32Array([1.0, 1.0, 1.0]),
+        "u_light.intensity": 1.0,
+        "u_light.position": v3.fromValues(20.0, 5.0, 20.0),
+        u_viewPosition: cam.pos,
+    };
+
+    const transforms = new Float32Array(numObjs * 16);
+    const infoInstances = new Array(numObjs);
+
+    for (let i = 0; i < numObjs; i++) {
+        infoInstances[i] = {
+            transform: transforms.subarray(i * 16, i * 16 + 16),
+        }
+
+        slime_light["u_light.position"] = positions[i];
+        m4.identity(infoInstances[i].transform);
+        m4.translate(infoInstances[i].transform, infoInstances[i].transform, positions[i]);
+        const scale = Math.random() * 0.5 + 0.1;
+		m4.scale(infoInstances[i].transform, infoInstances[i].transform, [scale, scale, scale],);
+
+    }
+    
+    const cubex = await cg.loadObj(
+        "models/slime/slime.obj",
+        gl,
+        slimeProgramInfo,
+        transforms,
+      );
 
     function MoveAllSlimes(x, z){
         for(let i=0; i < numObjs; i++){
@@ -159,6 +185,7 @@ async function main(){
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             aspect = gl.canvas.width / gl.canvas.height;
         }
+        
         gl.clearColor(0.69, 0.80, 1, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -199,35 +226,20 @@ async function main(){
         //slimes (hay errores para poner luz a los slimes, se quedan negros por alguna razon)
         //el problema creo que es porque le estoy pasando coords a los uniforms
         //deberia ser con el slime_light, pero si le pongo eso ya no se grafican los slimes
-        for (let i = 0; i < numObjs; i++) {
-            slime_light["u_light.position"] = positions[i];
-            m4.identity(world);
-            m4.translate(world, world, positions[i]);
-            //gl.useProgram(slimeProgramInfo.program);
-            twgl.setUniforms(meshProgramInfo, coords);
-            //twgl.setUniforms(slimeProgramInfo, coords);
+        // No leo lloros ~
+            gl.useProgram(slimeProgramInfo.program)
+            m4.identity(coords.u_world);
 
-            for (const { bufferInfo, vao, material } of cubex) {
+            twgl.setUniforms(slimeProgramInfo, coords);
+            twgl.setUniforms(slimeProgramInfo, fragUniforms);
+            for (const { bufferInfo, vertexArrayInfo, vao, material } of cubex) {
               gl.bindVertexArray(vao);
-              twgl.setUniforms(meshProgramInfo, {}, material);
-              //twgl.setUniforms(slimeProgramInfo, {}, material);
-              twgl.drawBufferInfo(gl, bufferInfo);
+              gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.attribs.a_transform.buffer);
+              gl.bufferSubData(gl.ARRAY_BUFFER, 0, transforms),
+              twgl.setUniforms(slimeProgramInfo, {}, material);  
+              twgl.drawBufferInfo(gl, vertexArrayInfo, gl.TRIANGLES, vertexArrayInfo.numElements, 0, numObjs,);
             }
-            
-            let baseSlimePos = parseInt(perlinNoise.get((positions[i][2] * num_pixels/grid_size) + offSetX, (positions[i][0] * 
-            num_pixels/grid_size) + offSetY)) * 20;
-            
-            positions[i][1] += delta[i][1] * deltaTime;
-            if  (positions[i][1] > 60){
-                positions[i][1] = 60;
-                delta[i][1] = 0;
-            }
-            else if (positions[i][1] - slimeRadius <= baseSlimePos && delta[i][1]<0) {
-                positions[i][1] = baseSlimePos + slimeRadius;
-                delta[i][1] =20;
-            }
-            delta[i][1] += deltaG * deltaTime;
-        }
+
 
         requestAnimationFrame(render);
     }
