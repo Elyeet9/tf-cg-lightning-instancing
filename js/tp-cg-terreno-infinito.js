@@ -2,6 +2,8 @@
 
 import * as pn from "./perlinnoise.js";
 import * as cg from "./cg.js";
+import * as v3 from "./glmjs/vec3.js";
+import * as v4 from "./glmjs/vec4.js";
 import * as m4 from "./glmjs/mat4.js";
 import * as twgl from "./twgl-full.module.js";
 
@@ -37,13 +39,14 @@ async function main(){
 
     twgl.setDefaults({ attribPrefix: "a_" });
 
-    const vertSrc = await fetch("glsl/tp-cg.vert").then((r) => r.text());
-    const fragSrc = await fetch("glsl/tp-cg.frag").then((r) => r.text());
+    const vertSrc = await fetch("glsl/flashlight.vert").then((r) => r.text());
+    const fragSrc = await fetch("glsl/flashlight.frag").then((r) => r.text());
     const meshProgramInfo = twgl.createProgramInfo(gl, [vertSrc, fragSrc]);
+    const slimeProgramInfo = twgl.createProgramInfo(gl, [vertSrc, fragSrc]);
     const cubex = await cg.loadObj(
         "models/slime/slime.obj",
         gl,
-        meshProgramInfo,
+        slimeProgramInfo,
       );
     const waterObj = await cg.loadObj(
         "models/water/water.obj",
@@ -68,10 +71,45 @@ async function main(){
 
     const cam = new cg.Cam([0, 18, 20], 100);
 
-    let aspect = 1;
+    let aspect = 16.0/9.0;
     let deltaTime = 0;
     let lastTime = 0;
-    let theta = 0;
+    
+    const initial_light_pos = v3.fromValues(20, 15, 20);
+    const origin = v4.create();
+    const light_position = v3.create();
+
+    const world = m4.create();
+    const projection = m4.create();
+
+    const coords = {
+        u_world: world,
+        u_projection: projection,
+        u_view: cam.viewM4,
+    };
+
+    const slime_light = {
+        "u_light.type": 3,
+        "u_light.ambient": new Float32Array([0.01, 0.01, 0.01]),
+        "u_light.diffuse": new Float32Array([1.0, 1.0, 1.0]),
+        "u_light.intensity": 1.0,
+        "u_light.position": v3.fromValues(20.0, 5.0, 20.0),
+        u_viewPosition: cam.pos,
+    };
+
+    const flashlight = {
+        "u_light.ambient": new Float32Array([0.25, 0.25, 0.25]),
+        "u_light.diffuse": new Float32Array([1.0, 1.0, 1.0]),
+        "u_light.intensity": 10,
+        "u_light.cutOff": Math.cos(Math.PI / 15.0),
+        "u_light.outerCutOff": Math.cos(Math.PI / 12.0),
+        "u_light.direction": cam.lookAt,
+        "u_light.position": cam.pos,
+        "u_light.constant": 1.0,
+        "u_light.linear": 0.09,
+        "u_light.quadratic": 0.002,
+        u_viewPosition: cam.pos,
+    };
 
     const numObjs = 10;
     const positions = new Array(numObjs);
@@ -93,12 +131,6 @@ async function main(){
             positions[i][2] += x;
         }
     }
-
-    const uniforms = {
-        u_world: m4.create(),
-        u_projection: m4.create(),
-        u_view: cam.viewM4,
-    };
 
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
@@ -130,21 +162,55 @@ async function main(){
         gl.clearColor(0.69, 0.80, 1, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        theta = elapsedTime;
+        m4.identity(world);
+        m4.translate(world, world, initial_light_pos);
+        v3.transformMat4(light_position, origin, world);
 
-        m4.identity(uniforms.u_projection);
-        m4.perspective(uniforms.u_projection, cam.zoom, aspect, 0.1, 100);
+        m4.identity(projection);
+        m4.perspective(projection, cam.zoom, aspect, 0.1, 100);
 
         gl.useProgram(meshProgramInfo.program);
+        twgl.setUniforms(meshProgramInfo, flashlight);
 
+        //ground
+        let x = 0, y = 0, v;
+        for (let i = -64; i < 64; i += 2) {
+            x = 0;
+            for (let j = -64; j < 64; j += 2) {
+                v = perlinNoise.get(x + offSetX, y + offSetY);
+
+                m4.identity(world);
+                m4.translate(world, world, [i, parseInt(v*20), j]);
+                twgl.setUniforms(meshProgramInfo, coords);
+
+                var objectToUse = GetObjectToUse(v);
+                for (const { bufferInfo, vao, material } of objectToUse) {
+                    gl.bindVertexArray(vao);
+                    twgl.setUniforms(meshProgramInfo, {}, material);
+                    twgl.drawBufferInfo(gl, bufferInfo);
+                }
+                x += num_pixels / grid_size
+            }
+            y += num_pixels / grid_size;
+
+        }
+
+
+        //slimes (hay errores para poner luz a los slimes, se quedan negros por alguna razon)
+        //el problema creo que es porque le estoy pasando coords a los uniforms
+        //deberia ser con el slime_light, pero si le pongo eso ya no se grafican los slimes
         for (let i = 0; i < numObjs; i++) {
-            m4.identity(uniforms.u_world);
-            m4.translate(uniforms.u_world, uniforms.u_world, positions[i]);
-            twgl.setUniforms(meshProgramInfo, uniforms);
+            slime_light["u_light.position"] = positions[i];
+            m4.identity(world);
+            m4.translate(world, world, positions[i]);
+            //gl.useProgram(slimeProgramInfo.program);
+            twgl.setUniforms(meshProgramInfo, coords);
+            //twgl.setUniforms(slimeProgramInfo, coords);
 
             for (const { bufferInfo, vao, material } of cubex) {
               gl.bindVertexArray(vao);
               twgl.setUniforms(meshProgramInfo, {}, material);
+              //twgl.setUniforms(slimeProgramInfo, {}, material);
               twgl.drawBufferInfo(gl, bufferInfo);
             }
             
@@ -163,29 +229,6 @@ async function main(){
             delta[i][1] += deltaG * deltaTime;
         }
 
-
-
-        let x = 0, y = 0, v;
-        for (let i = -64; i < 64; i += 2) {
-            x = 0;
-            for (let j = -64; j < 64; j += 2) {
-                v = perlinNoise.get(x + offSetX, y + offSetY);
-
-                m4.identity(uniforms.u_world);
-                m4.translate(uniforms.u_world, uniforms.u_world, [i, parseInt(v*20), j]);
-                twgl.setUniforms(meshProgramInfo, uniforms);
-
-                var objectToUse = GetObjectToUse(v);
-                for (const { bufferInfo, vao, material } of objectToUse) {
-                    gl.bindVertexArray(vao);
-                    twgl.setUniforms(meshProgramInfo, {}, material);
-                    twgl.drawBufferInfo(gl, bufferInfo);
-                }
-                x += num_pixels / grid_size
-            }
-            y += num_pixels / grid_size;
-
-        }
         requestAnimationFrame(render);
     }
     requestAnimationFrame(render);
@@ -222,8 +265,8 @@ async function main(){
             MoveAllSlimes(-MoveOffsetX, - MoveOffsetZ);
             
         }
-        else if(e.key === "q" || e.key === "Q") cam.moveUpDown(1, deltaTime)/40;
-        else if(e.key === "e" || e.key === "E") cam.moveUpDown(-1, deltaTime)/40;
+        else if(e.key === "q" || e.key === "Q") cam.moveUpDown(-1, deltaTime)/40;
+        else if(e.key === "e" || e.key === "E") cam.moveUpDown(1, deltaTime)/40;
     });
     
     document.addEventListener("mousemove", (e) => cam.movePov(e.x, e.y));
