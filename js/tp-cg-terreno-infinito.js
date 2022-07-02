@@ -14,7 +14,6 @@ const grid_size = 1;
 const resolution = 16;
 const num_pixels = grid_size / resolution; // 0.0625
 const perlinNoise = new pn.PerlinNoise();
-const slimeRadius = 1.5;
 
 const RegionType = {
     WATER: -1,
@@ -139,7 +138,7 @@ async function main(){
         slime_light["u_light.position"] = positions[i];
         m4.identity(infoInstances[i].transform);
         m4.translate(infoInstances[i].transform, infoInstances[i].transform, positions[i]);
-        const scale = Math.random() * 0.5 + 0.1;
+        const scale = Math.random() * 0.33 + 0.1;
 		m4.scale(infoInstances[i].transform, infoInstances[i].transform, [scale, scale, scale],);
 
     }
