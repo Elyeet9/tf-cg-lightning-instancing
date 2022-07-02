@@ -96,7 +96,7 @@ async function main(){
     const flashlight = {
         "u_light.ambient": new Float32Array([0.25, 0.25, 0.25]),
         "u_light.diffuse": new Float32Array([1.0, 1.0, 1.0]),
-        "u_light.intensity": 10,
+        "u_light.intensity": 4,
         "u_light.cutOff": Math.cos(Math.PI / 15.0),
         "u_light.outerCutOff": Math.cos(Math.PI / 12.0),
         "u_light.direction": cam.lookAt,
@@ -226,20 +226,19 @@ async function main(){
         //el problema creo que es porque le estoy pasando coords a los uniforms
         //deberia ser con el slime_light, pero si le pongo eso ya no se grafican los slimes
         // No leo lloros ~
-            gl.useProgram(slimeProgramInfo.program)
-            m4.identity(coords.u_world);
+        gl.useProgram(slimeProgramInfo.program)
+        m4.identity(coords.u_world);
 
-            twgl.setUniforms(slimeProgramInfo, coords);
-            twgl.setUniforms(slimeProgramInfo, fragUniforms);
-            for (const { bufferInfo, vertexArrayInfo, vao, material } of cubex) {
-              gl.bindVertexArray(vao);
-              gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.attribs.a_transform.buffer);
-              gl.bufferSubData(gl.ARRAY_BUFFER, 0, transforms),
-              twgl.setUniforms(slimeProgramInfo, {}, material);  
-              twgl.drawBufferInfo(gl, vertexArrayInfo, gl.TRIANGLES, vertexArrayInfo.numElements, 0, numObjs,);
-            }
-
-
+        twgl.setUniforms(slimeProgramInfo, coords);
+        twgl.setUniforms(slimeProgramInfo, fragUniforms);
+        for (const { bufferInfo, vertexArrayInfo, vao, material } of cubex) {
+            gl.bindVertexArray(vao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, bufferInfo.attribs.a_transform.buffer);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, transforms),
+            twgl.setUniforms(slimeProgramInfo, {}, material);  
+            twgl.drawBufferInfo(gl, vertexArrayInfo, gl.TRIANGLES, vertexArrayInfo.numElements, 0, numObjs,);
+        }
+        
         requestAnimationFrame(render);
     }
     requestAnimationFrame(render);
